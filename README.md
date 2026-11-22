@@ -1,5 +1,11 @@
 # pp-aktienfinder-import
 
+> **Entwicklungshinweis:** Dieses Projekt wurde mit Unterstützung von
+> **GitHub Copilot** erstellt.
+>
+> **Getestete Umgebungen:** Python 3.13.17 und Portfolio Performance
+> **0.90.0 (November 2026)** auf Windows (`win32`, x86-64).
+
 **External tool for importing aktienfinder.net ETF data into Portfolio Performance**
 
 `pp-aktienfinder-import` connects to the official aktienfinder.net MCP server,
