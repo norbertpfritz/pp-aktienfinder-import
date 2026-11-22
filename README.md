@@ -1,13 +1,38 @@
 # pp-aktienfinder-import
 
-`pp-aktienfinder-import` reads selected ETF data from the official
-aktienfinder.net MCP server and creates taxonomies that can be imported into
-Portfolio Performance (PP).
+**External tool for importing aktienfinder.net ETF data into Portfolio Performance**
 
-The tool is an external converter. It does not modify Portfolio Performance
-and does not change a PP database automatically. The resulting JSON is first
-shown in a preview or saved locally, and only an explicit PP import changes the
-open PP database.
+`pp-aktienfinder-import` connects to the official aktienfinder.net MCP server,
+reads ETF countries, regions, sectors and holdings, and creates
+Portfolio-Performance-compatible taxonomy JSON.
+
+It is an external converter, not a Portfolio-Performance fork. The tool does
+not modify Portfolio Performance or a PP database automatically. It opens the
+aktienfinder.net browser login with OAuth/PKCE, reads data through MCP and
+writes local JSON files for manual review and import in PP.
+
+## Project summary
+
+| Aspect | Description |
+|---|---|
+| Purpose | Prepare ETF classification data for Portfolio Performance |
+| Data source | Official aktienfinder.net MCP server |
+| Authentication | Browser-based OAuth 2.1 with PKCE |
+| Credential handling | Passwords and OAuth tokens remain in memory; nothing is saved |
+| Input | ISINs or WKNs in a JSON parameter file |
+| Output | One PP import file or separate taxonomy JSON files |
+| Taxonomies | Country, Region, Sector, Industry and Holding |
+| Main hierarchy | Countries below regions; ETFs below holdings; `Sonstige` completes the total |
+| PP integration | Manual JSON import with preview; no automatic database changes |
+| Platform | Windows, Python 3.13 |
+
+### Use cases
+
+- Classify ETF holdings by country and region.
+- Classify ETF holdings by supersector and optional industry.
+- Inspect the ten largest positions of an ETF.
+- Create a complete 100-percent Holding taxonomy per ETF.
+- Update or add existing PP taxonomies through the PP import wizard.
 
 ## What the project creates
 
@@ -429,6 +454,21 @@ not bypass server quotas. Multiple ETFs should be queried in blocks rather
 than repeated individually.
 
 ## Testing
+
+The project is covered by local unit tests for:
+
+- loading the example and custom parameter files;
+- WKN resolution requirements;
+- PP taxonomy JSON structure;
+- Country-to-region hierarchy construction;
+- ETF-to-holding hierarchy construction;
+- ETF-specific `Sonstige` weights totaling 100 percent;
+- combining multiple documents into one PP multi-taxonomy JSON file.
+
+The live integration has also been tested against aktienfinder.net MCP with
+three example ETFs. The test verified OAuth completion, MCP initialization,
+Country/Region/Sector/Holding tool responses and JSON generation. OAuth tokens
+and credentials were never written to the communication log.
 
 Run local tests from the repository:
 
