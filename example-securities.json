@@ -1,10 +1,6 @@
 {
   "securities": [
     {
-      "identifier": "DE000EWG2LD7",
-      "identifierType": "ISIN"
-    },
-    {
       "identifier": "IE00B4K48X80",
       "identifierType": "ISIN"
     },
