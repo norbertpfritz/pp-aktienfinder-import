@@ -395,12 +395,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Validate configuration and print the data plan without authentication",
     )
-    parser.add_argument(
+    output_mode = parser.add_mutually_exclusive_group()
+    output_mode.add_argument(
         "--preview",
         action="store_true",
         help="Print generated taxonomy JSON after fetching",
     )
-    parser.add_argument(
+    output_mode.add_argument(
         "--single-file",
         action="store_true",
         help="Write all taxonomies into one pp-taxonomies.json import file",
