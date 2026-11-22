@@ -7,6 +7,7 @@ from pp_aktienfinder_import.config import load_config
 from pp_aktienfinder_import.resolver import resolve_wkns
 from pp_aktienfinder_import.taxonomy import breakdown_document
 from pp_aktienfinder_import.cli import combine_documents
+from pp_aktienfinder_import.taxonomy import hierarchical_country_document
 
 
 class ConfigTest(unittest.TestCase):
@@ -64,6 +65,24 @@ class ConfigTest(unittest.TestCase):
         ])
         self.assertEqual(["Country"], list(combined))
         self.assertEqual(2, len(combined["Country"]["instruments"]))
+
+    def test_country_document_is_hierarchical(self) -> None:
+        document = hierarchical_country_document(
+            [
+                {"Name": "Deutschland", "WeightPercent": 13.7},
+                {"Name": "Frankreich", "WeightPercent": 13.44},
+                {"Name": "USA", "WeightPercent": 70.66},
+            ],
+            {"isin": "IE00B4X9L533"},
+        )
+        regions = {category["name"]: category for category in document["categories"]}
+        self.assertEqual(2, len(regions))
+        self.assertIn("Europa (EUR)", regions)
+        self.assertIn("Nordamerika", regions)
+        self.assertEqual(
+            ["Deutschland", "Frankreich"],
+            [child["name"] for child in regions["Europa (EUR)"]["children"]],
+        )
 
 
 if __name__ == "__main__":

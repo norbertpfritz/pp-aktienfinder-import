@@ -13,7 +13,8 @@ open PP database.
 
 Depending on the configuration, the tool creates PP taxonomy JSON for:
 
-- **Country**: country weights of the analyzed ETF holdings
+- **Country**: hierarchical country weights. The region names are parent
+  categories and countries are their children
 - **Region**: regional weights
 - **Sector**: supersector weights
 - **Industry**: industry weights, optional
@@ -189,6 +190,16 @@ Country, region and sector weights refer to the analyzed stocks.
 `AnalyzedStocksDensityPercent` indicates how much of the ETF was covered;
 the MCP result may therefore differ from a complete 100 percent fund view.
 
+In the `Country` taxonomy, regions are generated as parent categories and
+countries as leaf assignments. Portfolio Performance derives a region total
+from the weights assigned to its country children; the project does not assign
+the region directly to an ETF. The separate `Region` taxonomy remains a direct
+aktienfinder.net export and is not changed.
+
+The country-to-region mapping uses fixed German country and region names.
+Countries not covered by the mapping are placed below `Sonstige`. The mapping
+is documented in `src/pp_aktienfinder_import/taxonomy.py`.
+
 ### `options`
 
 The current CLI uses command-line switches for live behavior.
@@ -256,8 +267,18 @@ Example:
   "name": "Country",
   "categories": [
     {
-      "name": "USA",
-      "key": "country-usa"
+      "name": "Nordamerika",
+      "key": "country-nordamerika",
+      "children": [
+        {
+          "name": "USA",
+          "key": "country-usa"
+        },
+        {
+          "name": "Kanada",
+          "key": "country-kanada"
+        }
+      ]
     }
   ],
   "instruments": [

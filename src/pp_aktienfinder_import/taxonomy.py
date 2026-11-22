@@ -49,6 +49,89 @@ def breakdown_document(
     )
 
 
+COUNTRY_REGION_MAPPING = {
+    "Europa (EUR)": {
+        "Deutschland", "Frankreich", "Niederlande", "Spanien", "Italien",
+        "Finnland", "Belgien", "Irland", "Luxemburg", "Portugal", "Österreich",
+        "Griechenland", "Slowenien", "Slowakei", "Estland", "Lettland",
+        "Litauen", "Zypern", "Malta", "Kroatien",
+    },
+    "Europa (ex EUR)": {
+        "Großbritannien", "Schweiz", "Schweden", "Dänemark", "Norwegen",
+        "Polen", "Ungarn", "Tschechische Republik", "Rumänien", "Bulgarien",
+        "Türkei", "Russland", "Ukraine", "Island",
+    },
+    "Nordamerika": {
+        "USA", "Kanada", "Mexiko", "Bermuda", "Kaimaninseln", "Panama",
+    },
+    "Asien": {
+        "Japan", "Taiwan", "Südkorea", "China", "Indien", "Hong Kong",
+        "Singapur", "Malaysia", "Thailand", "Indonesien", "Philippinen",
+        "Saudi-Arabien", "Kuwait", "Israel",
+    },
+    "Südamerika": {
+        "Brasilien", "Peru", "Uruguay", "Chile", "Kolumbien", "Argentinien",
+        "Ecuador", "Venezuela",
+    },
+    "Afrika": {
+        "Südafrika", "Nigeria", "Kenia", "Ägypten", "Marokko",
+    },
+    "Australien": {
+        "Australien", "Neuseeland",
+    },
+}
+
+
+def country_region(name: str) -> str:
+    for region, countries in COUNTRY_REGION_MAPPING.items():
+        if name in countries:
+            return region
+    return "Sonstige"
+
+
+def hierarchical_country_document(
+    items: list[dict],
+    instrument_identifier: dict,
+) -> dict:
+    regions: dict[str, list[dict]] = {}
+    assignments = []
+
+    for item in items:
+        country = str(item.get("Name", "")).strip()
+        weight = item.get("WeightPercent")
+        if not country or not isinstance(weight, (int, float)):
+            continue
+
+        region = country_region(country)
+        country_key = stable_key("country", country)
+        regions.setdefault(region, []).append(
+            {"name": country, "key": country_key}
+        )
+        assignments.append({"key": country_key, "weight": weight})
+
+    categories = []
+    for region, countries in regions.items():
+        region_key = stable_key("country", region)
+        categories.append(
+            {
+                "name": region,
+                "key": region_key,
+                "children": countries,
+            }
+        )
+
+    return {
+        "name": "Country",
+        "categories": categories,
+        "instruments": [
+            {
+                "identifiers": instrument_identifier,
+                "categories": assignments,
+            }
+        ],
+    }
+
+
 def holdings_document(
     name: str,
     holdings: list[dict],

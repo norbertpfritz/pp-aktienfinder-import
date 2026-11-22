@@ -16,7 +16,11 @@ from mcp.shared.auth import OAuthClientMetadata
 from .config import load_config
 from .oauth import MemoryTokenStorage, open_browser, receive_authorization_code
 from .resolver import resolve_wkns
-from .taxonomy import breakdown_document, holdings_document
+from .taxonomy import (
+    breakdown_document,
+    hierarchical_country_document,
+    holdings_document,
+)
 
 
 MCP_URL = "https://aktienfinder.net/mcp"
@@ -250,7 +254,12 @@ def build_documents(
             documents.append(
                 (
                     f"{name.lower()}-{isin}.json",
-                    breakdown_document(
+                    hierarchical_country_document(
+                        item.get("Items", []),
+                        identifiers,
+                    )
+                    if dimension == "Country"
+                    else breakdown_document(
                         name,
                         dimension,
                         item.get("Items", []),
@@ -310,6 +319,48 @@ def combine_documents(documents: list[tuple[str, dict]]) -> dict:
 
     for _filename, document in documents:
         taxonomy_name = document["name"]
+
+        if taxonomy_name == "Country":
+            is_hierarchical = any(
+                "children" in category
+                for category in document.get("categories", [])
+            )
+            if not is_hierarchical:
+                category_names = {
+                    category["key"]: category["name"]
+                    for category in document.get("categories", [])
+                }
+                country_instruments = []
+                country_categories = {}
+                for instrument in document.get("instruments", []):
+                    items = [
+                        {
+                            "Name": category_names[assignment["key"]],
+                            "WeightPercent": assignment["weight"],
+                        }
+                        for assignment in instrument.get("categories", [])
+                    ]
+                    hierarchy = hierarchical_country_document(
+                        items,
+                        instrument["identifiers"],
+                    )
+                    country_instruments.extend(hierarchy["instruments"])
+                    for category in hierarchy["categories"]:
+                        existing = country_categories.setdefault(category["key"], category)
+                        if existing is not category:
+                            existing_children = {
+                                child["key"]: child
+                                for child in existing["children"]
+                            }
+                            for child in category["children"]:
+                                existing_children.setdefault(child["key"], child)
+                            existing["children"] = list(existing_children.values())
+                document = {
+                    "name": "Country",
+                    "categories": list(country_categories.values()),
+                    "instruments": country_instruments,
+                }
+
         taxonomy = combined.setdefault(
             taxonomy_name,
             {
@@ -319,12 +370,17 @@ def combine_documents(documents: list[tuple[str, dict]]) -> dict:
             },
         )
 
-        categories_by_key = {
-            category["key"]: category
-            for category in taxonomy["categories"]
-        }
+        categories_by_key = {category["key"]: category for category in taxonomy["categories"]}
         for category in document.get("categories", []):
-            categories_by_key.setdefault(category["key"], category)
+            existing = categories_by_key.setdefault(category["key"], category)
+            if existing is not category and "children" in existing:
+                existing_children = {
+                    child["key"]: child
+                    for child in existing["children"]
+                }
+                for child in category.get("children", []):
+                    existing_children.setdefault(child["key"], child)
+                existing["children"] = list(existing_children.values())
         taxonomy["categories"] = list(categories_by_key.values())
 
         instrument_by_isin = {
