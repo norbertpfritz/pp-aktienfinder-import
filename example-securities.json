@@ -1,0 +1,33 @@
+{
+  "securities": [
+    {
+      "identifier": "DE000EWG2LD7",
+      "identifierType": "ISIN"
+    },
+    {
+      "identifier": "IE00B4K48X80",
+      "identifierType": "ISIN"
+    },
+    {
+      "identifier": "IE00B4X9L533",
+      "identifierType": "ISIN"
+    },
+    {
+      "identifier": "IE00B4L5YC18",
+      "identifierType": "ISIN"
+    }
+  ],
+  "portfolioXml": null,
+  "taxonomy": {
+    "country": true,
+    "region": true,
+    "sector": true,
+    "industry": false,
+    "holdings": true,
+    "topHoldings": 10
+  },
+  "options": {
+    "dryRun": false,
+    "previewOnly": false
+  }
+}
