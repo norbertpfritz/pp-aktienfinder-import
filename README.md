@@ -20,6 +20,12 @@ Depending on the configuration, the tool creates PP taxonomy JSON for:
 - **Industry**: industry weights, optional
 - **Holding**: the largest ETF holdings and their weights
 
+The `Holding` taxonomy is hierarchical: each ETF is a parent category, the
+ten largest holdings are child categories, and an ETF-specific `Sonstige`
+child fills the difference to 100 percent. No ETF is left as
+`Without classification`; if the server has no additional holdings, the
+`Sonstige` amount is correspondingly larger.
+
 The top-holdings setting defaults to `10`.
 
 ## Requirements

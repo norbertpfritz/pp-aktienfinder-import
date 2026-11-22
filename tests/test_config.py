@@ -7,7 +7,7 @@ from pp_aktienfinder_import.config import load_config
 from pp_aktienfinder_import.resolver import resolve_wkns
 from pp_aktienfinder_import.taxonomy import breakdown_document
 from pp_aktienfinder_import.cli import combine_documents
-from pp_aktienfinder_import.taxonomy import hierarchical_country_document
+from pp_aktienfinder_import.taxonomy import hierarchical_country_document, holdings_document
 
 
 class ConfigTest(unittest.TestCase):
@@ -83,6 +83,26 @@ class ConfigTest(unittest.TestCase):
             ["Deutschland", "Frankreich"],
             [child["name"] for child in regions["Europa (EUR)"]["children"]],
         )
+
+    def test_holding_document_has_etf_and_other(self) -> None:
+        document = holdings_document(
+            "Holding",
+            [
+                {"Isin": "US0378331005", "Name": "Apple", "WeightPercent": 5.98},
+                {"Isin": "US5949181045", "Name": "Microsoft", "WeightPercent": 4.14},
+            ],
+            {
+                "isin": "IE00B4X9L533",
+                "name": "HSBC MSCI World UCITS ETF USD (Dist)",
+            },
+        )
+        parent = document["categories"][0]
+        self.assertEqual("HSBC MSCI World UCITS ETF USD (Dist)", parent["name"])
+        children = parent["children"]
+        self.assertEqual("Sonstige", children[-1]["name"])
+        assignments = document["instruments"][0]["categories"]
+        total = round(sum(item["weight"] for item in assignments), 4)
+        self.assertEqual(100.0, total)
 
 
 if __name__ == "__main__":

@@ -137,8 +137,13 @@ def holdings_document(
     holdings: list[dict],
     instrument_identifier: dict,
 ) -> dict:
-    categories = []
+    etf_name = str(instrument_identifier.get("name", "")).strip()
+    etf_isin = str(instrument_identifier.get("isin", "")).strip()
+    parent_name = etf_name or etf_isin or "ETF"
+    parent_key = stable_key("holding-etf", etf_isin or parent_name)
+    children = []
     assignments = []
+    assigned_weight = 0.0
 
     for holding in holdings:
         label = str(holding.get("Name", "")).strip()
@@ -148,11 +153,29 @@ def holdings_document(
             continue
 
         key = stable_key("holding", isin or label)
-        categories.append((key, label))
+        children.append({"name": label, "key": key})
         assignments.append({"key": key, "weight": weight})
+        assigned_weight += float(weight)
 
-    return category_document(
-        name,
-        categories,
-        [{"identifiers": instrument_identifier, "categories": assignments}],
-    )
+    other_weight = round(max(0.0, 100.0 - assigned_weight), 4)
+    other_key = stable_key("holding-other", etf_isin or parent_name)
+    children.append({"name": "Sonstige", "key": other_key})
+    if other_weight > 0:
+        assignments.append({"key": other_key, "weight": other_weight})
+
+    return {
+        "name": name,
+        "categories": [
+            {
+                "name": parent_name,
+                "key": parent_key,
+                "children": children,
+            }
+        ],
+        "instruments": [
+            {
+                "identifiers": instrument_identifier,
+                "categories": assignments,
+            }
+        ],
+    }
