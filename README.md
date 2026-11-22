@@ -13,6 +13,7 @@ taxonomy JSON files for manual import.
 
 ## Run
 
+python -m pp_aktienfinder_import --config example-securities.json --single-file
 ```powershell
 
 The live flow opens your browser for aktienfinder.net OAuth login. This

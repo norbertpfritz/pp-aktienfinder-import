@@ -305,6 +305,70 @@ def preview_documents(documents: list[tuple[str, dict]]) -> None:
         print(json.dumps(document, ensure_ascii=False, indent=2))
 
 
+def combine_documents(documents: list[tuple[str, dict]]) -> dict:
+    combined: dict[str, dict] = {}
+
+    for _filename, document in documents:
+        taxonomy_name = document["name"]
+        taxonomy = combined.setdefault(
+            taxonomy_name,
+            {
+                "name": taxonomy_name,
+                "categories": [],
+                "instruments": [],
+            },
+        )
+
+        categories_by_key = {
+            category["key"]: category
+            for category in taxonomy["categories"]
+        }
+        for category in document.get("categories", []):
+            categories_by_key.setdefault(category["key"], category)
+        taxonomy["categories"] = list(categories_by_key.values())
+
+        instrument_by_isin = {
+            instrument["identifiers"].get("isin"): instrument
+            for instrument in taxonomy["instruments"]
+            if instrument.get("identifiers", {}).get("isin")
+        }
+        for instrument in document.get("instruments", []):
+            isin = instrument["identifiers"].get("isin")
+            existing = instrument_by_isin.get(isin)
+            if existing is None:
+                taxonomy["instruments"].append(instrument)
+                instrument_by_isin[isin] = instrument
+            else:
+                existing_categories = {
+                    assignment["key"]: assignment
+                    for assignment in existing["categories"]
+                }
+                for assignment in instrument["categories"]:
+                    existing_categories.setdefault(
+                        assignment["key"],
+                        assignment,
+                    )
+                existing["categories"] = list(existing_categories.values())
+
+    return combined
+
+
+def write_combined_document(
+    documents: list[tuple[str, dict]],
+    output: Path,
+    filename: str = "pp-taxonomies.json",
+) -> Path:
+    combined = combine_documents(documents)
+    output.mkdir(parents=True, exist_ok=True)
+    path = output / filename
+    path.write_text(
+        json.dumps(list(combined.values()), ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Wrote combined taxonomy file {path}")
+    return path
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Create Portfolio Performance taxonomy JSON from aktienfinder.net"
@@ -335,6 +399,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--preview",
         action="store_true",
         help="Print generated taxonomy JSON after fetching",
+    )
+    parser.add_argument(
+        "--single-file",
+        action="store_true",
+        help="Write all taxonomies into one pp-taxonomies.json import file",
     )
     return parser
 
@@ -374,6 +443,8 @@ def main() -> int:
 
         if args.preview:
             preview_documents(documents)
+        elif args.single_file:
+            write_combined_document(documents, args.output)
         else:
             write_documents(documents, args.output)
         return 0

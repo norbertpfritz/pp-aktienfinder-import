@@ -6,6 +6,7 @@ from pathlib import Path
 from pp_aktienfinder_import.config import load_config
 from pp_aktienfinder_import.resolver import resolve_wkns
 from pp_aktienfinder_import.taxonomy import breakdown_document
+from pp_aktienfinder_import.cli import combine_documents
 
 
 class ConfigTest(unittest.TestCase):
@@ -43,6 +44,26 @@ class ConfigTest(unittest.TestCase):
             67.5,
             document["instruments"][0]["categories"][0]["weight"],
         )
+
+    def test_combines_taxonomies_by_name(self) -> None:
+        first = breakdown_document(
+            "Country",
+            "Country",
+            [{"Name": "USA", "WeightPercent": 70.0}],
+            {"isin": "IE00B4X9L533"},
+        )
+        second = breakdown_document(
+            "Country",
+            "Country",
+            [{"Name": "Deutschland", "WeightPercent": 13.0}],
+            {"isin": "IE00B4K48X80"},
+        )
+        combined = combine_documents([
+            ("country-one.json", first),
+            ("country-two.json", second),
+        ])
+        self.assertEqual(["Country"], list(combined))
+        self.assertEqual(2, len(combined["Country"]["instruments"]))
 
 
 if __name__ == "__main__":
