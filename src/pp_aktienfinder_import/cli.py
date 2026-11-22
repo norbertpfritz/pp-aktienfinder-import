@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import json
 import sys
+import logging
 from pathlib import Path
 
 from mcp import ClientSession
@@ -19,6 +20,47 @@ from .taxonomy import breakdown_document, holdings_document
 
 
 MCP_URL = "https://aktienfinder.net/mcp"
+REDACTED_KEYS = {
+    "authorization",
+    "access_token",
+    "refresh_token",
+    "token",
+    "password",
+    "secret",
+    "cookie",
+    "set-cookie",
+}
+
+
+def configure_communication_log(path: Path) -> logging.Logger:
+    logger = logging.getLogger("aktienfinder-mcp")
+    logger.setLevel(logging.INFO)
+    logger.handlers.clear()
+    handler = logging.FileHandler(path, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logger.addHandler(handler)
+    return logger
+
+
+def redact(value):
+    if isinstance(value, dict):
+        return {
+            key: "[REDACTED]"
+            if str(key).lower() in REDACTED_KEYS
+            else redact(child)
+            for key, child in value.items()
+        }
+    if isinstance(value, list):
+        return [redact(child) for child in value]
+    return value
+
+
+def log_json(logger: logging.Logger, event: str, payload) -> None:
+    logger.info(
+        "%s %s",
+        event,
+        json.dumps(redact(payload), ensure_ascii=False, sort_keys=True),
+    )
 
 
 def call_result_payload(result) -> dict:
@@ -41,6 +83,17 @@ def call_result_payload(result) -> dict:
 
 
 async def fetch_data(config: dict) -> dict:
+    log_path = Path("aktienfinder-live.log")
+    communication_log = configure_communication_log(log_path)
+    log_json(
+        communication_log,
+        "MCP_START",
+        {
+            "server": MCP_URL,
+            "identifiers": [item["identifier"] for item in config["securities"]],
+            "transport": "streamable-http",
+        },
+    )
     storage = MemoryTokenStorage()
     metadata = OAuthClientMetadata(
         redirect_uris=["http://127.0.0.1:8765/callback"],
@@ -76,9 +129,11 @@ async def fetch_data(config: dict) -> dict:
         async with streamable_http_client(
             MCP_URL,
             http_client=http_client,
-        ) as (read_stream, write_stream, _):
+        ) as streams:
+            read_stream, write_stream = streams
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
+                log_json(communication_log, "MCP_INITIALIZED", {"ok": True})
 
                 for dimension, enabled in (
                     ("Country", taxonomy_options.get("country", True)),
@@ -87,18 +142,35 @@ async def fetch_data(config: dict) -> dict:
                     ("Industry", taxonomy_options.get("industry", False)),
                 ):
                     if enabled:
+                        request_arguments = {
+                            "namesOrIsins": identifiers,
+                            "dimension": dimension,
+                        }
+                        log_json(
+                            communication_log,
+                            "MCP_TOOL_REQUEST get_etf_breakdown",
+                            request_arguments,
+                        )
                         response = await session.call_tool(
                             "get_etf_breakdown",
-                            {
-                                "namesOrIsins": identifiers,
-                                "dimension": dimension,
-                            },
+                            request_arguments,
                         )
-                        if response.isError:
+                        if response.is_error:
+                            log_json(
+                                communication_log,
+                                "MCP_TOOL_ERROR get_etf_breakdown",
+                                {"dimension": dimension, "isError": True},
+                            )
                             raise RuntimeError(
                                 f"get_etf_breakdown({dimension}) failed"
                             )
-                        result["breakdowns"][dimension] = call_result_payload(response)
+                        payload = call_result_payload(response)
+                        log_json(
+                            communication_log,
+                            "MCP_TOOL_RESPONSE get_etf_breakdown",
+                            payload,
+                        )
+                        result["breakdowns"][dimension] = payload
 
                 if taxonomy_options.get("holdings", True):
                     top_holdings = int(taxonomy_options.get("topHoldings", 10))
@@ -116,9 +188,19 @@ async def fetch_data(config: dict) -> dict:
                                     "offset": offset,
                                 },
                             )
-                            if response.isError:
+                            if response.is_error:
+                                log_json(
+                                    communication_log,
+                                    "MCP_TOOL_ERROR get_etf_holdings",
+                                    {"isError": True, "offset": offset},
+                                )
                                 raise RuntimeError("get_etf_holdings failed")
                             page = call_result_payload(response)
+                            log_json(
+                                communication_log,
+                                "MCP_TOOL_RESPONSE get_etf_holdings",
+                                page,
+                            )
                             for item in page.get("Items", []):
                                 key = item.get("Isin") or item.get("Name")
                                 existing = result["holdings"].setdefault(

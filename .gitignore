@@ -4,5 +4,6 @@ __pycache__/
 .env
 output/
 *.bak
+*.log
 *.json
 !example-securities.json

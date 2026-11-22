@@ -40,6 +40,7 @@ async def open_browser(url: str) -> None:
 async def receive_authorization_code() -> AuthorizationCodeResult:
     future: asyncio.Future[AuthorizationCodeResult] = asyncio.Future()
     loop = asyncio.get_running_loop()
+    issuer = "https://dividendenfinder.de/"
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -47,6 +48,7 @@ async def receive_authorization_code() -> AuthorizationCodeResult:
             code = params.get("code", [None])[0]
             state = params.get("state", [None])[0]
             error = params.get("error", [None])[0]
+            returned_issuer = params.get("iss", [issuer])[0]
 
             body = (
                 "<html><body><h2>Authentifizierung abgeschlossen</h2>"
@@ -66,7 +68,11 @@ async def receive_authorization_code() -> AuthorizationCodeResult:
             elif code:
                 loop.call_soon_threadsafe(
                     future.set_result,
-                    AuthorizationCodeResult(code=code, state=state),
+                    AuthorizationCodeResult(
+                        code=code,
+                        state=state,
+                        iss=returned_issuer,
+                    ),
                 )
             else:
                 loop.call_soon_threadsafe(
